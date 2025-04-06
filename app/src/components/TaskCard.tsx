@@ -248,7 +248,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onEdit, onDel
                         className="button-secondary start-work" 
                         onClick={handleStartWork}
                     >
-                        Start Work
+                        Start
                     </button>
                 )}
                 

@@ -1,16 +1,27 @@
-import ProjectManager from './src/components/ProjectManager';
+"use client";
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from './context/AuthContext';
 
 export default function Home() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading) {
+      if (user) {
+        router.push('/dashboard');
+      } else {
+        router.push('/login');
+      }
+    }
+  }, [user, loading, router]);
+
   return (
-    <div className="app-container">
-      <header className="app-header">
-        <h1 className="text-xl font-semibold">ManagMe</h1>
-      </header>
-      <div className="app-body">
-        <main className="main-content-full">
-          <ProjectManager />
-        </main>
-      </div>
+    <div className="loading-container">
+      <div className="loading-spinner"></div>
+      <p>Loading...</p>
     </div>
   );
 }

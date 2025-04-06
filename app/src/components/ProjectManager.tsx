@@ -216,10 +216,10 @@ const ProjectManager: React.FC = () => {
                             <h2>{taskFormVisible ? (editingTask ? 'Edit Task' : 'Add New Task') : 'Tasks'}</h2>
                             {!taskFormVisible ? (
                                 <button 
-                                    className="button-primary" 
+                                    className="button-secondary add-task" 
                                     onClick={handleShowForm}
                                 >
-                                    + Add Task
+                                    + 
                                 </button>
                             ) : null}
                         </div>
@@ -304,7 +304,7 @@ const ProjectManager: React.FC = () => {
                                         Cancel
                                     </button>
                                     <button 
-                                        className="button-primary" 
+                                        className="button-secondary complete" 
                                         onClick={handleAddTask}
                                     >
                                         {editingTaskId ? 'Save Changes' : 'Add Task'}

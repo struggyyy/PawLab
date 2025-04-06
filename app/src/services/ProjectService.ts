@@ -13,12 +13,12 @@ class ProjectService {
                 // Check if projects already exist
                 const existingProjects = localStorage.getItem(this.storageKey);
                 if (!existingProjects) {
-                    // Przykładowe projekty
+                    // Example projects
                     const initialProjects: Project[] = [
-                        { id: '1', name: 'Projekt A', description: 'Opis projektu A', ownerId: '1' },
-                        { id: '2', name: 'Projekt B', description: 'Opis projektu B', ownerId: '1' },
-                        { id: '3', name: 'Projekt C', description: 'Opis projektu C', ownerId: '2' },
-                        { id: '4', name: 'Projekt D', description: 'Opis projektu D', ownerId: '3' },
+                        { id: '1', name: 'Project A', description: 'Description of Project A', ownerId: '1' },
+                        { id: '2', name: 'Project B', description: 'Description of Project B', ownerId: '1' },
+                        { id: '3', name: 'Project C', description: 'Description of Project C', ownerId: '2' },
+                        { id: '4', name: 'Project D', description: 'Description of Project D', ownerId: '3' },
                     ];
                     localStorage.setItem(this.storageKey, JSON.stringify(initialProjects));
                 }

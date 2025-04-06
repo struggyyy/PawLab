@@ -1,15 +1,17 @@
-import { User } from '../models/User';
+import { User as AppUser } from '../models/User';
+import { getCurrentUser } from '../../lib/supabase';
 
 const isBrowser = typeof window !== 'undefined';
 
 class UserService {
-    private users: User[] = [
+    private users: AppUser[] = [
         { id: '1', firstName: 'Jan', lastName: 'Kowalski', role: 'admin' },
         { id: '2', firstName: 'Anna', lastName: 'Nowak', role: 'developer' },
         { id: '3', firstName: 'Piotr', lastName: 'Zalewski', role: 'devops' },
     ];
-    private currentUser: User;
+    private currentUser: AppUser;
     private storageKey = 'currentUser';
+    private isAuthenticated = false;
 
     constructor() {
         // Default to admin user first
@@ -28,9 +30,29 @@ class UserService {
                 localStorage.setItem(this.storageKey, JSON.stringify(this.currentUser));
             }
         }
+
+        // Check authentication
+        this.checkAuthentication();
     }
 
-    getUser(): User {
+    async checkAuthentication() {
+        try {
+            const authUser = await getCurrentUser();
+            this.isAuthenticated = !!authUser;
+            
+            // If authenticated, map the auth user to our internal user
+            if (this.isAuthenticated) {
+                // For now, we'll just use the existing user data
+                // In a real app, you would fetch user details from your database
+                console.log('Authenticated as:', authUser?.email);
+            }
+        } catch (error) {
+            console.error('Error checking authentication:', error);
+            this.isAuthenticated = false;
+        }
+    }
+
+    getUser(): AppUser {
         return this.currentUser;
     }
 
@@ -44,8 +66,12 @@ class UserService {
         }
     }
 
-    getUsers(): User[] {
+    getUsers(): AppUser[] {
         return this.users;
+    }
+
+    isUserAuthenticated(): boolean {
+        return this.isAuthenticated;
     }
 }
 
