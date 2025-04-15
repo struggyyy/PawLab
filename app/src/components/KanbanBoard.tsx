@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, DragEvent } from 'react';
 import { TaskService } from '../services/TaskService';
 import TaskCard from './TaskCard';
 import { Task } from '../models/TaskModel';
+import UserService from '../services/UserService';
 
 interface KanbanBoardProps {
     projectId: string;
@@ -85,6 +86,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     };
 
     const handleDrop = (e: DragEvent<HTMLDivElement>, newStatus: 'todo' | 'doing' | 'done') => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        
         e.preventDefault();
         const taskId = e.dataTransfer.getData('taskId');
         
@@ -93,6 +99,32 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         }
         
         setDragOverColumn(null);
+    };
+
+    // Show or hide the action buttons based on user permissions
+    const renderTaskActions = (task: Task) => {
+        if (!UserService.hasWritePermission()) {
+            return null; // Don't render any action buttons for guest users
+        }
+        
+        return (
+            <div className="task-actions">
+                <button className="button-secondary" onClick={() => onEditTask(task)}>
+                    Edit
+                </button>
+                {task.status !== 'done' && (
+                    <button 
+                        className="button-secondary complete" 
+                        onClick={() => handleStatusChange(task.id, 'done')}
+                    >
+                        Complete
+                    </button>
+                )}
+                <button className="button-danger button-secondary" onClick={() => onDeleteTask(task.id)}>
+                    Delete
+                </button>
+            </div>
+        );
     };
 
     return (

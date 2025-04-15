@@ -25,7 +25,12 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ taskId, onUpdate }) => {
         }
     }, [task]);
 
-    const assignUser = (userId: string) => {
+    const handleAssign = (userId: string) => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        
         if (task) {
             const updatedTask = TaskService.assignUser(task.id, userId);
             if (updatedTask) {
@@ -35,7 +40,12 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ taskId, onUpdate }) => {
         }
     };
 
-    const markAsDone = () => {
+    const handleComplete = () => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        
         if (task) {
             const updatedTask = TaskService.completeTask(task.id);
             if (updatedTask) {
@@ -46,6 +56,11 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ taskId, onUpdate }) => {
     };
 
     const updateHours = () => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        
         if (task) {
             const updatedTask = TaskService.updateTaskHours(task.id, workedHours);
             if (updatedTask) {
@@ -74,7 +89,7 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ taskId, onUpdate }) => {
                 <div className="assign-user">
                     <p>Nieprzypisane</p>
                     <select 
-                        onChange={(e) => assignUser(e.target.value)}
+                        onChange={(e) => handleAssign(e.target.value)}
                         defaultValue=""
                     >
                         <option value="" disabled>Przypisz użytkownika</option>
@@ -105,8 +120,11 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ taskId, onUpdate }) => {
             {task.startDate && <p>Data startu: {new Date(task.startDate).toLocaleString()}</p>}
             {task.endDate && <p>Data zakończenia: {new Date(task.endDate).toLocaleString()}</p>}
             
-            {task.status === 'doing' && (
-                <button onClick={markAsDone} className="button primary">Zakończ zadanie</button>
+            {task.status !== 'done' && UserService.hasWritePermission() && (
+                <div className="task-action-section">
+                    <h3>Actions</h3>
+                    <button onClick={handleComplete} className="button primary">Zakończ zadanie</button>
+                </div>
             )}
         </div>
     );

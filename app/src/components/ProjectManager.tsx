@@ -29,7 +29,14 @@ const ProjectManager: React.FC = () => {
     );
 
     useEffect(() => {
-        setProjects(ProjectService.getProjects().filter(project => project.ownerId === currentUserId));
+        // For guest users (Google OAuth), load all projects
+        // For regular users, only show their projects
+        if (UserService.isUserGuest()) {
+            setProjects(ProjectService.getProjects());
+        } else {
+            setProjects(ProjectService.getProjects().filter(project => project.ownerId === currentUserId));
+        }
+        
         const loadedTasks = TaskService.getTasks();
         setTasks(loadedTasks);
     }, [currentUserId]);
@@ -106,6 +113,11 @@ const ProjectManager: React.FC = () => {
     };
 
     const handleEditTask = (task: Task) => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        
         setAssignedUserId(task.assignedTo);
         setEditingTask(task);
         setTaskFormVisible(true);
@@ -118,6 +130,11 @@ const ProjectManager: React.FC = () => {
     };
 
     const handleDeleteTask = (taskId: string) => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        
         const confirmDelete = window.confirm('Are you sure you want to delete this task?');
         if (confirmDelete) {
             const updatedTasks = tasks.filter(task => task.id !== taskId);
@@ -148,6 +165,11 @@ const ProjectManager: React.FC = () => {
     };
 
     const handleTaskStatusChange = (taskId: string, newStatus: 'todo' | 'doing' | 'done') => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        
         const now = new Date();
         const updatedTasks = tasks.map(task => {
             if (task.id === taskId) {
@@ -214,14 +236,14 @@ const ProjectManager: React.FC = () => {
                     <div className="task-form-container">
                         <div className="task-form-heading">
                             <h2>{taskFormVisible ? (editingTask ? 'Edit Task' : 'Add New Task') : 'Tasks'}</h2>
-                            {!taskFormVisible ? (
+                            {!taskFormVisible && UserService.hasWritePermission() && (
                                 <button 
-                                    className="button-secondary add-task" 
+                                    className="button-primary add-task" 
                                     onClick={handleShowForm}
                                 >
                                     + 
                                 </button>
-                            ) : null}
+                            )}
                         </div>
                         
                         {showForm && (

@@ -94,6 +94,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onEdit, onDel
     
     // Assign user handler
     const handleAssignUser = (userId: string) => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        
         const updatedTask = TaskService.assignUser(task.id, userId);
         setAssignUserOpen(false);
         // Force parent to refresh
@@ -111,6 +116,47 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onEdit, onDel
             // If no user assigned, open the assign user dropdown
             setAssignUserOpen(true);
         }
+    };
+
+    const handleStatusChange = (newStatus: 'todo' | 'doing' | 'done') => {
+        if (!UserService.hasWritePermission()) {
+            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+            return;
+        }
+        onStatusChange(task.id, newStatus);
+        setExpanded(false);
+    };
+
+    // Render the Start button only if user has permission
+    const renderStartButton = () => {
+        if (!UserService.hasWritePermission()) {
+            return null;
+        }
+        
+        return (
+            <button 
+                className="button-secondary start-work" 
+                onClick={handleStartWork}
+            >
+                Start
+            </button>
+        );
+    };
+
+    // Render the Complete button only if user has permission
+    const renderCompleteButton = () => {
+        if (!UserService.hasWritePermission()) {
+            return null;
+        }
+        
+        return (
+            <button 
+                className="button-secondary complete" 
+                onClick={() => handleStatusChange('done')}
+            >
+                Complete
+            </button>
+        );
     };
 
     return (
@@ -139,11 +185,29 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onEdit, onDel
                     {task.priority === 'niski' ? 'Low' : task.priority === 'średni' ? 'Medium' : 'High'}
                 </span>
                 {assignedUser ? (
-                    <span className="assigned-to" title={`${assignedUser.firstName} ${assignedUser.lastName} (${assignedUser.role})`}>
-                        {assignedUser.firstName}
-                    </span>
+                    <div>
+                        {`${assignedUser.firstName} ${assignedUser.lastName} (${assignedUser.role})`}
+                        {UserService.hasWritePermission() && (
+                            <button 
+                                className="button-small button-secondary"
+                                onClick={() => setAssignUserOpen(!assignUserOpen)}
+                            >
+                                Change
+                            </button>
+                        )}
+                    </div>
                 ) : (
-                    <span className="not-assigned">Unassigned</span>
+                    <>
+                        <span>Unassigned</span>
+                        {UserService.hasWritePermission() && (
+                            <button 
+                                className="button-secondary button-small"
+                                onClick={() => setAssignUserOpen(!assignUserOpen)}
+                            >
+                                Assign
+                            </button>
+                        )}
+                    </>
                 )}
                 {task.estimatedTime > 0 && (
                     <span className="estimated-time">{task.estimatedTime}h</span>
@@ -182,20 +246,27 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onEdit, onDel
                             {assignedUser ? (
                                 <div>
                                     {`${assignedUser.firstName} ${assignedUser.lastName} (${assignedUser.role})`}
-                                    <button 
-                                        className="button-small button-secondary"
-                                        onClick={() => setAssignUserOpen(!assignUserOpen)}
-                                    >
-                                        Change
-                                    </button>
+                                    {UserService.hasWritePermission() && (
+                                        <button 
+                                            className="button-small button-secondary"
+                                            onClick={() => setAssignUserOpen(!assignUserOpen)}
+                                        >
+                                            Change
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
-                                <button 
-                                    className="button-secondary button-small"
-                                    onClick={() => setAssignUserOpen(!assignUserOpen)}
-                                >
-                                    Assign
-                                </button>
+                                <>
+                                    <span>Unassigned</span>
+                                    {UserService.hasWritePermission() && (
+                                        <button 
+                                            className="button-secondary button-small"
+                                            onClick={() => setAssignUserOpen(!assignUserOpen)}
+                                        >
+                                            Assign
+                                        </button>
+                                    )}
+                                </>
                             )}
                             
                             {assignUserOpen && (
@@ -239,31 +310,21 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onEdit, onDel
             )}
             
             <div className="task-actions">
-                <button className="button-secondary" onClick={onEdit}>
-                    Edit
-                </button>
-                
-                {task.status === 'todo' && (
-                    <button 
-                        className="button-secondary start-work" 
-                        onClick={handleStartWork}
-                    >
-                        Start
+                {UserService.hasWritePermission() && (
+                    <button className="button-secondary" onClick={() => onEdit()}>
+                        Edit
                     </button>
                 )}
                 
-                {task.status === 'doing' && (
-                    <button 
-                        className="button-secondary complete" 
-                        onClick={() => onStatusChange(task.id, 'done')}
-                    >
-                        Complete
+                {task.status === 'todo' && renderStartButton()}
+                
+                {task.status === 'doing' && renderCompleteButton()}
+                
+                {UserService.hasWritePermission() && (
+                    <button className="button-danger button-secondary" onClick={() => onDelete()}>
+                        Delete
                     </button>
                 )}
-                
-                <button className="button-danger button-secondary" onClick={onDelete}>
-                    Delete
-                </button>
             </div>
         </div>
     );
