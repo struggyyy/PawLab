@@ -1,69 +1,139 @@
 import { Story } from "../models/Story";
+import { supabase } from '../../lib/supabase';
+import userService from "./UserService"; // To get current user for owner_id
 
-const isBrowser = typeof window !== 'undefined';
+// const isBrowser = typeof window !== 'undefined'; // No longer needed
 
 export class StoryService {
-    private static storageKey = 'stories';
+    // private static storageKey = 'stories'; // No longer needed
 
-    static getStories(): Story[] {
-        if (!isBrowser) return [];
-        
+    static async getStoriesByProjectId(projectId: string): Promise<Story[]> {
         try {
-            const storiesData = localStorage.getItem(this.storageKey);
-            return storiesData ? JSON.parse(storiesData) : [];
-        } catch (error) {
-            console.error('Error retrieving stories:', error);
+            const { data, error } = await supabase
+                .from('stories')
+                .select('*')
+                .eq('project_id', projectId);
+
+            if (error) {
+                console.error('Error retrieving stories by project ID:', error);
+                return [];
+            }
+            return data || [];
+        } catch (err) {
+            console.error('Exception retrieving stories by project ID:', err);
             return [];
         }
     }
 
-    static getStoriesByProject(projectId: string): Story[] {
-        return this.getStories().filter(story => story.projectId === projectId);
-    }
-
-    static getStoryById(storyId: string): Story | undefined {
-        return this.getStories().find(story => story.id === storyId);
-    }
-
-    static createStory(story: Story): void {
-        if (!isBrowser) return;
-        
-        const stories = this.getStories();
-        stories.push(story);
+    static async getStoryById(storyId: string): Promise<Story | null> {
         try {
-            localStorage.setItem(this.storageKey, JSON.stringify(stories));
-        } catch (error) {
-            console.error('Error saving story:', error);
-        }
-    }
+            const { data, error } = await supabase
+                .from('stories')
+                .select('*')
+                .eq('id', storyId)
+                .single();
 
-    static updateStory(updatedStory: Story): void {
-        if (!isBrowser) return;
-        
-        const stories = this.getStories();
-        const index = stories.findIndex(story => story.id === updatedStory.id);
-        if (index !== -1) {
-            stories[index] = updatedStory;
-            try {
-                localStorage.setItem(this.storageKey, JSON.stringify(stories));
-            } catch (error) {
-                console.error('Error updating story:', error);
+            if (error) {
+                console.error('Error fetching story by ID:', error);
+                return null;
             }
+            return data;
+        } catch (err) {
+            console.error('Exception fetching story by ID:', err);
+            return null;
         }
     }
 
-    static deleteStory(storyId: string): void {
-        if (!isBrowser) return;
-        
-        const stories = this.getStories().filter(story => story.id !== storyId);
+    static async createStory(storyData: Omit<Story, 'id' | 'created_at' | 'owner_id'>): Promise<Story | null> {
+        const currentUser = userService.getCurrentUserProfile();
+        if (!currentUser) {
+            console.error('User must be authenticated to create a story.');
+            return null;
+        }
+        if (!storyData.project_id) {
+            console.error('project_id is required to create a story.');
+            return null;
+        }
+
         try {
-            localStorage.setItem(this.storageKey, JSON.stringify(stories));
-        } catch (error) {
-            console.error('Error deleting story:', error);
+            const { data, error } = await supabase
+                .from('stories')
+                .insert([{
+                    ...storyData,
+                    owner_id: currentUser.id,
+                    // created_at is set by default in DB
+                }])
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error creating story:', error);
+                return null;
+            }
+            return data;
+        } catch (err) {
+            console.error('Exception creating story:', err);
+            return null;
         }
     }
 
-    static getStoriesByStatus(projectId: string, status: 'todo' | 'doing' | 'done'): Story[] {
-        return this.getStoriesByProject(projectId).filter(story => story.status === status);
+    static async updateStory(storyId: string, updatedStoryData: Partial<Omit<Story, 'id' | 'created_at' | 'owner_id' | 'project_id'>>): Promise<Story | null> {
+        // RLS ensures only authorized users (owner or project editor) can update
+        try {
+            const { data, error } = await supabase
+                .from('stories')
+                .update(updatedStoryData)
+                .eq('id', storyId)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error updating story:', error);
+                return null;
+            }
+            return data;
+        } catch (err) {
+            console.error('Exception updating story:', err);
+            return null;
+        }
+    }
+
+    static async deleteStory(storyId: string): Promise<boolean> {
+        // RLS ensures only authorized users can delete
+        try {
+            const { error } = await supabase
+                .from('stories')
+                .delete()
+                .eq('id', storyId);
+
+            if (error) {
+                console.error('Error deleting story:', error);
+                return false;
+            }
+            return true;
+        } catch (err) {
+            console.error('Exception deleting story:', err);
+            return false;
+        }
+    }
+
+    // Example: Get stories by status for a project (already existed, adapted for Supabase)
+    static async getStoriesByStatus(projectId: string, status: 'todo' | 'doing' | 'done'): Promise<Story[]> {
+        try {
+            const { data, error } = await supabase
+                .from('stories')
+                .select('*')
+                .eq('project_id', projectId)
+                .eq('status', status);
+
+            if (error) {
+                console.error(`Error retrieving stories with status ${status} for project ${projectId}:`, error);
+                return [];
+            }
+            return data || [];
+        } catch (err) {
+            console.error(`Exception retrieving stories with status ${status} for project ${projectId}:`, err);
+            return [];
+        }
     }
 } 

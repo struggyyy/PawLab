@@ -1,14 +1,14 @@
 export interface Task {
     id: string;
+    project_id: string;
     title: string;
-    description: string;
-    priority: 'niski' | 'średni' | 'wysoki';
-    storyId: string;
-    estimatedTime: number;
+    description?: string | null;
+    priority: 'low' | 'medium' | 'high';
+    estimated_time?: number | null;
     status: 'todo' | 'doing' | 'done';
-    assignedTo?: string;
-    startDate?: Date;
-    endDate?: Date;
-    createdAt: Date;
-    workedHours: number;
+    assigned_to?: string | null;
+    start_date?: string | Date | null;
+    end_date?: string | Date | null;
+    created_at?: string | Date;
+    worked_hours?: number | null;
 }

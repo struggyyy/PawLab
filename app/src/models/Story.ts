@@ -1,10 +1,10 @@
 export interface Story {
     id: string;
+    project_id: string;
     name: string;
-    description: string;
+    description?: string | null;
     priority: 'niski' | 'średni' | 'wysoki';
-    projectId: string;
-    createdAt: Date;
     status: 'todo' | 'doing' | 'done';
-    ownerId: string;
+    owner_id: string;
+    created_at?: string | Date;
 } 

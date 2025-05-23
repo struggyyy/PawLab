@@ -1,116 +1,169 @@
 import { Task } from "../models/TaskModel";
+import { supabase } from '../../lib/supabase';
+// import userService from "./UserService"; // Removed as not currently used
 
-const isBrowser = typeof window !== 'undefined';
+// const isBrowser = typeof window !== 'undefined'; // No longer needed
 
 export class TaskService {
-    private static storageKey = 'tasks';
+    // private static storageKey = 'tasks'; // No longer needed
 
-    static getTasks(): Task[] {
-        if (!isBrowser) return [];
-        
+    static async getTasksByProjectId(projectId: string): Promise<Task[]> {
         try {
-            const tasksData = localStorage.getItem(this.storageKey);
-            return tasksData ? JSON.parse(tasksData) : [];
-        } catch (error) {
-            console.error('Error retrieving tasks:', error);
+            const { data, error } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('project_id', projectId);
+
+            if (error) {
+                console.error('Error retrieving tasks by project ID:', error);
+                return [];
+            }
+            return data || [];
+        } catch (err) {
+            console.error('Exception retrieving tasks:', err);
             return [];
         }
     }
 
-    static createTask(task: Task): void {
-        if (!isBrowser) return;
-        
-        try {
-            // Get all existing tasks
-            const allTasks = this.getTasks();
-            // Add new task
-            allTasks.push(task);
-            // Save all tasks
-            localStorage.setItem(this.storageKey, JSON.stringify(allTasks));
-            console.log('Task created:', task);
-        } catch (error) {
-            console.error('Error saving task:', error);
+    static async createTask(taskData: Omit<Task, 'id' | 'created_at'>): Promise<Task | null> {
+        // project_id must be part of taskData
+        if (!taskData.project_id) {
+            console.error('project_id is required to create a task.');
+            return null;
         }
-    }
+        // assigned_to could be set here or via a separate assignUser method
+        // created_at will be set by Supabase default
 
-    static getTaskById(taskId: string): Task | undefined {
-        return this.getTasks().find(task => task.id === taskId);
-    }
-
-    static updateTask(updatedTask: Task): void {
-        if (!isBrowser) return;
-        
         try {
-            const tasks = this.getTasks();
-            const index = tasks.findIndex(task => task.id === updatedTask.id);
-            if (index !== -1) {
-                tasks[index] = updatedTask;
-                localStorage.setItem(this.storageKey, JSON.stringify(tasks));
-                console.log('Task updated:', updatedTask);
+            const { data, error } = await supabase
+                .from('tasks')
+                .insert([{
+                    ...taskData,
+                    // Ensure all required fields from Task model (like title, priority, status) are in taskData
+                }])
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error creating task (Supabase error object):', JSON.stringify(error, null, 2));
+                console.error('Full error object:', error);
+                return null;
             }
-        } catch (error) {
-            console.error('Error updating task:', error);
+            console.log('Task created:', data);
+            return data;
+        } catch (err) {
+            console.error('Exception creating task:', err);
+            return null;
         }
     }
 
-    static deleteTask(taskId: string): void {
-        if (!isBrowser) return;
-        
+    static async getTaskById(taskId: string): Promise<Task | null> {
         try {
-            const tasks = this.getTasks().filter(task => task.id !== taskId);
-            localStorage.setItem(this.storageKey, JSON.stringify(tasks));
+            const { data, error } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('id', taskId)
+                .single();
+            
+            if (error) {
+                console.error('Error fetching task by ID:', error);
+                return null;
+            }
+            return data;
+        } catch (err) {
+            console.error('Exception fetching task by ID:', err);
+            return null;
+        }
+    }
+
+    static async updateTask(taskId: string, updatedTaskData: Partial<Omit<Task, 'id' | 'created_at' | 'project_id'>>): Promise<Task | null> {
+        try {
+            const { data, error } = await supabase
+                .from('tasks')
+                .update(updatedTaskData)
+                .eq('id', taskId)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error updating task:', error);
+                return null;
+            }
+            console.log('Task updated:', data);
+            return data;
+        } catch (err) {
+            console.error('Exception updating task:', err);
+            return null;
+        }
+    }
+
+    static async deleteTask(taskId: string): Promise<boolean> {
+        try {
+            const { error } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('id', taskId);
+
+            if (error) {
+                console.error('Error deleting task:', error);
+                return false;
+            }
             console.log('Task deleted:', taskId);
-        } catch (error) {
-            console.error('Error deleting task:', error);
+            return true;
+        } catch (err) {
+            console.error('Exception deleting task:', err);
+            return false;
         }
     }
 
-    static assignUser(taskId: string, userId: string): Task | undefined {
-        const task = this.getTaskById(taskId);
-        if (task) {
-            const updatedTask: Task = { 
-                ...task, 
-                assignedTo: userId, 
-                status: 'doing', 
-                startDate: new Date() 
-            };
-            this.updateTask(updatedTask);
-            return updatedTask;
-        }
-        return undefined;
+    static async assignUser(taskId: string, userId: string): Promise<Task | null> {
+        const updatePayload: Partial<Omit<Task, 'id' | 'created_at' | 'project_id'>> = {
+            assigned_to: userId,
+            status: 'doing', // Explicitly using the literal type
+            start_date: new Date().toISOString(),
+        };
+        return this.updateTask(taskId, updatePayload);
     }
 
-    static completeTask(taskId: string): Task | undefined {
-        const task = this.getTaskById(taskId);
-        if (task) {
-            const updatedTask: Task = { 
-                ...task, 
-                status: 'done', 
-                endDate: new Date() 
-            };
-            this.updateTask(updatedTask);
-            return updatedTask;
-        }
-        return undefined;
+    static async completeTask(taskId: string): Promise<Task | null> {
+        const updatePayload: Partial<Omit<Task, 'id' | 'created_at' | 'project_id'>> = {
+            status: 'done', // Explicitly using the literal type
+            end_date: new Date().toISOString(),
+        };
+        return this.updateTask(taskId, updatePayload);
     }
 
-    static updateTaskHours(taskId: string, hours: number): Task | undefined {
-        const task = this.getTaskById(taskId);
-        if (task) {
-            const updatedTask: Task = { 
-                ...task, 
-                workedHours: hours 
-            };
-            this.updateTask(updatedTask);
-            return updatedTask;
+    static async updateTaskHours(taskId: string, hoursToAdd: number): Promise<Task | null> {
+        const task = await this.getTaskById(taskId);
+        if (!task) {
+            console.error("Task not found for updating hours");
+            return null;
         }
-        return undefined;
+        const currentWorkedHours = typeof task.worked_hours === 'number' ? task.worked_hours : 0;
+        
+        const updatePayload: Partial<Omit<Task, 'id' | 'created_at' | 'project_id'>> = {
+            worked_hours: currentWorkedHours + hoursToAdd, 
+        };
+        return this.updateTask(taskId, updatePayload);
     }
 
-    // For debugging - clear all tasks
-    static clearAllTasks(): void {
-        if (!isBrowser) return;
-        localStorage.removeItem(this.storageKey);
-        console.log('All tasks cleared');
+    // For debugging - clear all tasks from a specific project (use with caution)
+    static async clearTasksByProjectId(projectId: string): Promise<boolean> {
+        console.warn(`Attempting to delete all tasks for project ${projectId}. This is a destructive operation.`);
+        try {
+            const { error } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('project_id', projectId);
+            if (error) {
+                console.error('Error clearing tasks for project:', error);
+                return false;
+            }
+            console.log(`All tasks for project ${projectId} cleared.`);
+            return true;
+        } catch (err) {
+            console.error('Exception clearing tasks for project:', err);
+            return false;
+        }
     }
 } 

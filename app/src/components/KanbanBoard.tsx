@@ -1,39 +1,40 @@
-import React, { useState, useEffect, useCallback, DragEvent } from 'react';
-import { TaskService } from '../services/TaskService';
+import React, { useState, DragEvent } from 'react';
+// import { TaskService } from '../services/TaskService'; // No longer fetching tasks internally
 import TaskCard from './TaskCard';
 import { Task } from '../models/TaskModel';
-import UserService from '../services/UserService';
+import { User as AppUser } from '../models/User'; // Import AppUser
+// import UserService from '../services/UserService'; // Permissions now passed as prop
 
-interface KanbanBoardProps {
-    projectId: string;
+export interface KanbanBoardProps {
+    // projectId: string; // Tasks are now passed directly
+    tasks: Task[]; // Make tasks a required prop
     onEditTask: (task: Task) => void;
     onDeleteTask: (taskId: string) => void;
-    tasks?: Task[];
-    onStatusChange?: (taskId: string, newStatus: 'todo' | 'doing' | 'done') => void;
+    onStatusChange: (taskId: string, newStatus: 'todo' | 'doing' | 'done') => void; // Assume this is always provided
+    onAssignUser: (taskId: string, userId: string) => void; // New prop
+    availableUsers: AppUser[]; // New prop
+    canEdit: boolean; // New prop for permissions
 }
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
-    projectId, 
+    tasks, 
     onEditTask, 
     onDeleteTask, 
-    tasks: propTasks, 
-    onStatusChange: propStatusChange
+    onStatusChange,
+    onAssignUser,    // Destructure new props
+    availableUsers,  // Destructure new props
+    canEdit          // Destructure new props
 }) => {
-    const [tasks, setTasks] = useState<Task[]>([]);
+    // Internal state for tasks is no longer needed if tasks are purely prop-driven
+    // const [boardTasks, setBoardTasks] = useState<Task[]>(tasks); 
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
-    const refreshTasks = useCallback(() => {
-        if (propTasks) {
-            setTasks(propTasks);
-        } else {
-            setTasks(TaskService.getTasks().filter(task => task.storyId === projectId));
-        }
-    }, [projectId, propTasks]);
-    
-    useEffect(() => {
-        // Load tasks when component mounts or projectId changes
-        refreshTasks();
-    }, [refreshTasks]);
+    // useEffect to sync tasks if the prop changes (optional, depends on how ProjectManager manages state)
+    // This is generally good practice if tasks prop can be updated from parent after initial render.
+    // For now, assuming tasks prop is the source of truth for each render.
+    // useEffect(() => {
+    //     setBoardTasks(tasks);
+    // }, [tasks]);
 
     const groupedTasks: { [key: string]: Task[] } = {
         todo: tasks.filter(task => task.status === 'todo'),
@@ -47,34 +48,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         done: 'Done'
     };
 
-    const handleStatusChange = (taskId: string, newStatus: 'todo' | 'doing' | 'done') => {
-        if (propStatusChange) {
-            propStatusChange(taskId, newStatus);
-            return;
+    // handleStatusChange now directly calls the prop passed from ProjectManager
+    // The internal logic for updating status, startDate, endDate is removed as ProjectManager/TaskService handles it
+    const handleLocalStatusChange = (taskId: string, newStatus: 'todo' | 'doing' | 'done') => {
+        if (onStatusChange) { // Ensure prop is provided
+            onStatusChange(taskId, newStatus);
         }
-        
-        const task = tasks.find(task => task.id === taskId);
-        if (!task) return;
-        
-        const now = new Date();
-        const updatedTask: Task = { ...task, status: newStatus };
-        
-        // Track time when task changes status
-        if (newStatus === 'doing' && task.status !== 'doing') {
-            updatedTask.startDate = now;
-        } else if (newStatus === 'done' && task.status !== 'done') {
-            updatedTask.endDate = now;
-            TaskService.completeTask(taskId);
-            refreshTasks();
-            return;
-        }
-
-        // Update task with tracking info
-        TaskService.updateTask(updatedTask);
-        refreshTasks();
     };
 
-    // Drag and drop handlers
     const handleDragOver = (e: DragEvent<HTMLDivElement>, status: string) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -86,8 +67,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     };
 
     const handleDrop = (e: DragEvent<HTMLDivElement>, newStatus: 'todo' | 'doing' | 'done') => {
-        if (!UserService.hasWritePermission()) {
-            alert('You do not have permission to perform this action. Guest accounts are read-only.');
+        if (!canEdit) { // Use canEdit prop
+            alert('You do not have permission to perform this action.');
             return;
         }
         
@@ -95,38 +76,15 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         const taskId = e.dataTransfer.getData('taskId');
         
         if (taskId) {
-            handleStatusChange(taskId, newStatus);
+            handleLocalStatusChange(taskId, newStatus);
         }
         
         setDragOverColumn(null);
     };
 
-    // Show or hide the action buttons based on user permissions
-    const renderTaskActions = (task: Task) => {
-        if (!UserService.hasWritePermission()) {
-            return null; // Don't render any action buttons for guest users
-        }
-        
-        return (
-            <div className="task-actions">
-                <button className="button-secondary" onClick={() => onEditTask(task)}>
-                    Edit
-                </button>
-                {task.status !== 'done' && (
-                    <button 
-                        className="button-secondary complete" 
-                        onClick={() => handleStatusChange(task.id, 'done')}
-                    >
-                        Complete
-                    </button>
-                )}
-                <button className="button-danger button-secondary" onClick={() => onDeleteTask(task.id)}>
-                    Delete
-                </button>
-            </div>
-        );
-    };
+    // renderTaskActions removed as TaskCard will handle its own actions based on props
 
+    // The main rendering logic of the board remains similar
     return (
         <div className="kanban-board">
             <div className="kanban-header">
@@ -151,9 +109,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                 <TaskCard 
                                     key={task.id} 
                                     task={task} 
-                                    onStatusChange={handleStatusChange} 
                                     onEdit={() => onEditTask(task)} 
-                                    onDelete={() => onDeleteTask(task.id)} 
+                                    onDelete={() => onDeleteTask(task.id)}
+                                    onAssignUser={onAssignUser}      
+                                    availableUsers={availableUsers}  
+                                    canEdit={canEdit}                
                                 />
                             ))}
                             {groupedTasks[status].length === 0 && (
