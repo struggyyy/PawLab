@@ -21,7 +21,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [assignUserOpen, setAssignUserOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const assignedUser = task.assigned_to
@@ -92,12 +91,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
       return;
     }
     onAssignUser(task.id, userId);
-    setAssignUserOpen(false);
-  };
-
-  const handleToggleAssignUserOpen = () => {
-    if (!canEdit) return;
-    setAssignUserOpen(!assignUserOpen);
   };
 
   return (
@@ -112,70 +105,50 @@ const TaskCard: React.FC<TaskCardProps> = ({
     >
       <div className="task-header">
         <h4 className="task-title">{task.title}</h4>
+        <div className="task-header-right-group">
+          {task.estimated_time && task.estimated_time > 0 && (
+            <span className="estimated-time">{task.estimated_time}h</span>
+          )}
+          <span className={`priority ${task.priority}`}>
+            {task.priority === "low"
+              ? "Low"
+              : task.priority === "medium"
+              ? "Medium"
+              : "High"}
+          </span>
+        </div>
       </div>
 
       {!expanded && <p className="task-description">{shortDescription}</p>}
 
       <div className="task-meta">
-        <span className={`priority ${task.priority}`}>
-          {task.priority === "low"
-            ? "Low"
-            : task.priority === "medium"
-            ? "Medium"
-            : "High"}
-        </span>
         {assignedUser ? (
           <div>
-            {`${assignedUser.firstName || ""} ${assignedUser.lastName || ""} (${
-              assignedUser.role
-            })`}
-            {canEdit && (
-              <button
-                className="button-small button-secondary"
-                onClick={handleToggleAssignUserOpen}
-                title="Change assignee"
-              >
-                Change
-              </button>
-            )}
+            {`${assignedUser.firstName || ""} ${assignedUser.lastName || ""} (${assignedUser.role})`}
           </div>
         ) : (
-          <>
-            <span>Unassigned</span>
-            {canEdit && (
-              <button
-                className="button-secondary button-small"
-                onClick={handleToggleAssignUserOpen}
-                title="Assign user"
+          canEdit ? (
+            <div className="assign-user-direct-dropdown">
+              <select
+                value={task.assigned_to || ""}
+                onChange={(e) => handleLocalAssignUser(e.target.value)}
+                className="button-small"
               >
-                Assign
-              </button>
-            )}
-          </>
-        )}
-        {task.estimated_time && task.estimated_time > 0 && (
-          <span className="estimated-time">{task.estimated_time}h</span>
+                <option value="" disabled>
+                  Assign user...
+                </option>
+                {availableUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.firstName || ""} {user.lastName || ""} ({user.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span>Unassigned</span>
+          )
         )}
       </div>
-
-      {assignUserOpen && canEdit && (
-        <div className="assign-user-dropdown">
-          <select
-            defaultValue=""
-            onChange={(e) => handleLocalAssignUser(e.target.value)}
-          >
-            <option value="" disabled>
-              Select user
-            </option>
-            {availableUsers.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.firstName || ""} {user.lastName || ""} ({user.role})
-              </option>
-            ))}
-          </select>
-          <button onClick={() => setAssignUserOpen(false)}>Cancel</button>
-        </div>
-      )}
 
       {expanded && (
         <div className="task-details-expanded">

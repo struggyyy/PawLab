@@ -19,6 +19,7 @@
   --foreground: #172b4d;
   --foreground-secondary: #5e6c84;
   --card-bg: #ffffff;
+  --task-card-actual-bg: #f8f9fa;
   --sidebar-bg: #0747a6;
   --sidebar-text: #ffffff;
 
@@ -35,6 +36,7 @@
   --foreground: #f4f5f7;
   --foreground-secondary: #a9b7d0;
   --card-bg: #2d2d2d;
+  --task-card-actual-bg: #3a3a3a;
   --sidebar-bg: #0d1424;
   --border-color: #383838;
   --input-bg: #1e1e1e;
@@ -455,16 +457,13 @@ button {
 
 /* Task Cards */
 .task-card {
-  background-color: var(--card-bg);
+  background-color: var(--task-card-actual-bg);
   border-radius: var(--border-radius);
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
   box-shadow: var(--shadow);
+  transition: box-shadow 0.2s ease-in-out;
   border: 1px solid var(--border-color);
-  transition: transform 0.2s, box-shadow 0.2s;
-  cursor: grab;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .task-card:hover {
@@ -479,9 +478,16 @@ button {
   margin-bottom: 8px;
 }
 
+.task-header-right-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .task-title {
   font-weight: 500;
-  margin-bottom: 8px;
+  margin-right: 8px;
+  flex-grow: 1;
 }
 
 .task-description {
@@ -496,29 +502,31 @@ button {
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .priority {
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: var(--border-radius);
+  font-size: 11px;
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
-.priority.niski {
-  background-color: #b1ecb7;
-  color: #42526e;
+.priority.low {
+  background-color: var(--success-color);
+  color: #ffffff;
 }
 
-.priority.średni {
-  background-color: #f5bd4e;
+.priority.medium {
+  background-color: var(--warning-color);
   color: #172b4d;
 }
 
-.priority.wysoki {
-  background-color: #eb6e52;
-  color: white;
+.priority.high {
+  background-color: var(--danger-color);
+  color: #ffffff;
 }
 
 .assigned-to {
@@ -703,11 +711,11 @@ button {
 
 /* Estimated time badge */
 .estimated-time {
-  background-color: rgba(9, 30, 66, 0.08);
-  color: white;
-  border-radius: 3px;
-  padding: 2px 6px;
   font-size: 12px;
+  color: var(--foreground-secondary);
+  background-color: transparent;
+  padding: 2px 0px;
+  border-radius: var(--border-radius);
 }
 
 /* Assignment UI */
@@ -848,4 +856,14 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* Styling for the direct assignment dropdown in TaskCard */
+.assign-user-direct-dropdown select {
+  /* Inherit general select styles but make it more compact */
+  padding: 4px 8px; /* Smaller padding than global select */
+  font-size: 12px; /* Smaller font */
+  height: auto; /* Let content define height */
+  min-width: 150px; /* Adjust as needed */
+  /* margin-left: 8px; /* Remove if it causes layout issues here, or set to 0 */ 
 }
