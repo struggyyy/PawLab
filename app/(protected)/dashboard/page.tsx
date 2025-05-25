@@ -1,4 +1,4 @@
-import ProjectManager from '../../src/components/ProjectManager';
+import ProjectManager from "../../src/components/ProjectManager";
 
 export default function Dashboard() {
   return (
@@ -6,4 +6,4 @@ export default function Dashboard() {
       <ProjectManager />
     </div>
   );
-} 
+}

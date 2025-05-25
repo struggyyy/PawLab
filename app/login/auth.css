@@ -101,7 +101,7 @@
 
 .auth-separator::before,
 .auth-separator::after {
-  content: '';
+  content: "";
   flex: 1;
   border-bottom: 1px solid var(--border-color);
 }
@@ -137,4 +137,4 @@
 .button-google:disabled {
   opacity: 0.7;
   cursor: not-allowed;
-} 
+}

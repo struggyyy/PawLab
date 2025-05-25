@@ -1,8 +1,14 @@
-'use client';
+"use client";
 
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase, getCurrentUser, getSession, signOut } from '../lib/supabase';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  ReactNode,
+} from "react";
+import { User } from "@supabase/supabase-js";
+import { supabase, getCurrentUser, getSession, signOut } from "../lib/supabase";
 
 interface AuthContextType {
   user: User | null;
@@ -18,7 +24,9 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,7 +40,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(currentUser);
         }
       } catch (error) {
-        console.error('Error loading user', error);
+        console.error("Error loading user", error);
       } finally {
         setLoading(false);
       }
@@ -43,10 +51,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Listen for auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
+        if (event === "SIGNED_IN" && session) {
           const user = await getCurrentUser();
           setUser(user);
-        } else if (event === 'SIGNED_OUT') {
+        } else if (event === "SIGNED_OUT") {
           setUser(null);
         }
         setLoading(false);
@@ -65,4 +73,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}; 
+};

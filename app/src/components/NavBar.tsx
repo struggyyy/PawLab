@@ -1,10 +1,10 @@
 "use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../../context/AuthContext';
-import ThemeToggle from './ThemeToggle';
+import React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../context/AuthContext";
+import ThemeToggle from "./ThemeToggle";
 
 const NavBar: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -12,7 +12,7 @@ const NavBar: React.FC = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    router.push('/login');
+    router.push("/login");
   };
 
   return (
@@ -23,11 +23,14 @@ const NavBar: React.FC = () => {
             ManagMe
           </Link>
         </div>
-        
+
         <div className="user-menu">
           {user?.email && <span className="user-email">{user.email}</span>}
           <ThemeToggle />
-          <button onClick={handleSignOut} className="button-secondary sign-out-button">
+          <button
+            onClick={handleSignOut}
+            className="button-secondary sign-out-button"
+          >
             Sign Out
           </button>
         </div>
@@ -36,4 +39,4 @@ const NavBar: React.FC = () => {
   );
 };
 
-export default NavBar; 
+export default NavBar;

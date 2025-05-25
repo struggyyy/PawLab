@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -24,14 +24,14 @@ export const signIn = async (email: string, password: string) => {
 
 export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
+    provider: "google",
     options: {
       redirectTo: `${window.location.origin}/auth/callback`,
       queryParams: {
-        access_type: 'offline',
-        prompt: 'consent',
-      }
-    }
+        access_type: "offline",
+        prompt: "consent",
+      },
+    },
   });
   return { data, error };
 };
@@ -42,18 +42,22 @@ export const signOut = async () => {
 };
 
 export const getCurrentUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   return user;
 };
 
 export const getSession = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return session;
 };
 
 // Automatically refresh the token
 supabase.auth.onAuthStateChange((event) => {
-  if (event === 'TOKEN_REFRESHED') {
-    console.log('Token refreshed');
+  if (event === "TOKEN_REFRESHED") {
+    console.log("Token refreshed");
   }
-}); 
+});

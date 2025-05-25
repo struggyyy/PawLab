@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
-import NavBar from './components/NavBar';
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../src/context/AuthContext";
+import NavBar from "../src/components/NavBar";
 
 export default function ProtectedLayout({
   children,
@@ -15,7 +15,7 @@ export default function ProtectedLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push("/login");
     }
   }, [user, loading, router]);
 
@@ -35,9 +35,7 @@ export default function ProtectedLayout({
   return (
     <div className="app-container">
       <NavBar />
-      <main className="main-content-full">
-        {children}
-      </main>
+      <main className="main-content-full">{children}</main>
     </div>
   );
-} 
+}
