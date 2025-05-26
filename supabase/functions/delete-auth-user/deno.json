@@ -1,0 +1,29 @@
+{
+  "imports": {},
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom"]
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"],
+      "include": ["**/*.ts"],
+      "exclude": []
+    },
+    "report": "warning"
+  },
+  "fmt": {
+    "options": {
+      "useTabs": false,
+      "lineWidth": 80,
+      "indentWidth": 2,
+      "singleQuote": false
+    },
+    "files": {
+      "include": ["**/*.ts"],
+      "exclude": []
+    }
+  },
+  "tasks": {
+    "start": "deno run --allow-all index.ts"
+  }
+}

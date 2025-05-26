@@ -71,17 +71,13 @@ class UserService {
           updated_at: data.updated_at,
         };
       } else {
-        // This can happen if the handle_new_user trigger hasn't run yet or failed
-        // Or if a user was created before the trigger was in place.
-        // For now, create a minimal profile or assume guest.
-        // A robust solution might try to create a profile entry here if one is missing.
         console.warn(
           `Profile not found for user ${userId}, using minimal profile.`
         );
         const authUser = await getAuthUser(); // Get email from auth user
         newProfile = {
           id: userId,
-          firstName: authUser?.email?.split("@")[0] || "User", // Basic default
+          firstName: authUser?.email?.split("@")[0] || "User",
           lastName: "",
           role: "guest", // Default role
         };
@@ -110,17 +106,6 @@ class UserService {
   public getCurrentUserProfile(): AppUser | null {
     return this.currentUserProfile;
   }
-
-  // This method might need to be re-thought.
-  // "Setting" a user is now about who is logged in via Supabase.
-  // If this was for admins to "view as" another user, that's a more complex feature.
-  // For now, it's removed as direct user switching isn't standard with Supabase auth.
-  /*
-    setUser(userId: string): void {
-        // Logic for switching user view (if still needed and re-designed for Supabase)
-        // This would not change the authenticated user, but perhaps a "viewAs" state.
-    }
-    */
 
   async getAllUsers(): Promise<AppUser[]> {
     try {
@@ -152,54 +137,41 @@ class UserService {
    * Only allows updating fields like first_name, last_name. Role changes would typically be admin-only.
    */
   async updateUserProfile(
-    profileUpdates: Partial<Pick<AppUser, "firstName" | "lastName">>
+    userId: string,
+    updates: ProfileUpdatePayload
   ): Promise<AppUser | null> {
-    if (!this.authUserId) {
-      console.error("User must be authenticated to update profile.");
+    // Ensure the user can only update their own profile unless they are an admin
+    // This client-side check is a good first guard, but RLS is the true enforcer
+    const currentUser = await this.getCurrentUserProfile();
+    if (!currentUser) {
+      console.error("No current user found, cannot update profile.");
       return null;
     }
-    const updates: ProfileUpdatePayload = {
-      updated_at: new Date().toISOString(),
-    };
-    if (profileUpdates.firstName !== undefined)
-      updates.first_name = profileUpdates.firstName;
-    if (profileUpdates.lastName !== undefined)
-      updates.last_name = profileUpdates.lastName;
 
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", this.authUserId)
-        .select("id, first_name, last_name, role, updated_at")
-        .single();
-
-      if (error) {
-        console.error("Error updating user profile:", error);
-        return null;
-      }
-      if (data) {
-        const updatedProfile = {
-          id: data.id,
-          firstName: data.first_name,
-          lastName: data.last_name,
-          role: data.role || "guest",
-          updated_at: data.updated_at,
-        };
-        if (
-          JSON.stringify(this.currentUserProfile) !==
-          JSON.stringify(updatedProfile)
-        ) {
-          this.currentUserProfile = updatedProfile;
-          this.notifyProfileUpdate();
-        }
-        return this.currentUserProfile;
-      }
-      return null;
-    } catch (err) {
-      console.error("Exception updating user profile:", err);
+    if (currentUser.id !== userId && currentUser.role !== "admin") {
+      console.error("User does not have permission to update this profile.");
+      // Or throw an error / return an error object
       return null;
     }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating user profile:", error);
+      return null;
+    }
+    if (data && currentUser.id === userId) {
+      this.currentUserProfile = data as AppUser; // Update local cache if it's the current user
+      this.onProfileUpdateCallbacks.forEach((cb) =>
+        cb(this.currentUserProfile)
+      );
+    }
+    return data as AppUser;
   }
 
   /**
@@ -210,54 +182,38 @@ class UserService {
    * This is a placeholder for future admin functionality.
    */
   async adminUpdateUser(
-    userId: string,
-    updates: Partial<AppUser>
+    userIdToUpdate: string,
+    updates: ProfileUpdatePayload
   ): Promise<AppUser | null> {
-    console.warn(
-      "adminUpdateUser is not fully implemented with RLS for admin role yet."
-    );
-    // Example: You would need an RLS policy that allows users with 'admin' role to update any profile.
-    // For now, this will likely fail unless the logged-in user is the target user due to RLS.
-    const updateData: ProfileUpdatePayload = {
-      updated_at: new Date().toISOString(),
-    };
-    if (updates.firstName !== undefined)
-      updateData.first_name = updates.firstName;
-    if (updates.lastName !== undefined) updateData.last_name = updates.lastName;
-    if (updates.role !== undefined) updateData.role = updates.role;
-
+    // This method assumes the calling user is an admin.
+    // Frontend should verify admin role before calling this.
+    // RLS policies on Supabase are the ultimate enforcer.
     const { data, error } = await supabase
       .from("profiles")
-      .update(updateData)
-      .eq("id", userId)
-      .select("id, first_name, last_name, role, updated_at")
+      .update(updates)
+      .eq("id", userIdToUpdate)
+      .select()
       .single();
 
     if (error) {
-      console.error("Error admin updating user:", error);
+      console.error("Error (admin) updating user profile:", error);
+      // Consider throwing an error or returning a more specific error object
       return null;
     }
-    // Assuming the select query fetches the needed fields if not generic select()
-    if (data) {
-      const newProfile = {
-        id: data.id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        role: data.role || "guest",
-        updated_at: data.updated_at,
+    // If the admin updated the currently logged-in user's profile, update the local cache.
+    if (
+      this.currentUserProfile &&
+      this.currentUserProfile.id === userIdToUpdate
+    ) {
+      this.currentUserProfile = {
+        ...this.currentUserProfile,
+        ...updates,
       } as AppUser;
-      // If this admin update affects the current logged-in user's profile
-      if (this.currentUserProfile && this.currentUserProfile.id === userId) {
-        if (
-          JSON.stringify(this.currentUserProfile) !== JSON.stringify(newProfile)
-        ) {
-          this.currentUserProfile = newProfile;
-          this.notifyProfileUpdate();
-        }
-      }
-      return newProfile;
+      this.onProfileUpdateCallbacks.forEach((cb) =>
+        cb(this.currentUserProfile)
+      );
     }
-    return null;
+    return data as AppUser;
   }
 
   isUserAuthenticated(): boolean {

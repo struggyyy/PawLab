@@ -45,12 +45,21 @@ class ProjectService {
         .single();
 
       if (error) {
-        console.error("Error fetching project by ID:", error);
-        return null;
+        // If the error is specifically because no rows were found by .single(),
+        // this is not necessarily an "error" in all contexts (e.g., checking existence or verifying delete).
+        // PGRST116 is the PostgREST error code for "Requested range not satisfiable" which .single() can trigger.
+        if (error.code === "PGRST116") {
+          // console.log(`Project with ID ${projectId} not found (PGRST116). Returning null.`); // Optional: more specific log for debug
+          return null;
+        } else {
+          // For other errors, log them as they might be more critical.
+          console.error(`Error fetching project by ID ${projectId}:`, error);
+          return null;
+        }
       }
       return data;
     } catch (err) {
-      console.error("Exception fetching project by ID:", err);
+      console.error(`Exception fetching project by ID ${projectId}:`, err);
       return null;
     }
   }
@@ -102,42 +111,146 @@ class ProjectService {
     projectId: string,
     updatedProjectData: Partial<Omit<Project, "id" | "created_at" | "owner_id">>
   ): Promise<Project | null> {
-    // RLS will ensure only authorized users can update.
+    console.log(
+      `Attempting to update project ${projectId} with data:`,
+      updatedProjectData
+    );
     try {
-      const { data, error } = await supabase
+      const { error: updateError } = await supabase
         .from("projects")
         .update(updatedProjectData)
-        .eq("id", projectId)
-        .select()
-        .single();
+        .eq("id", projectId);
 
-      if (error) {
-        console.error("Error updating project:", error);
+      if (updateError) {
+        console.error(
+          `Error during Supabase update operation for project ${projectId}:`,
+          updateError
+        );
+        // Attempt to provide a more specific reason if known RLS failure codes
+        if (
+          updateError.code === "42501" ||
+          updateError.message.includes("RLS policy")
+        ) {
+          // 42501 is permission denied
+          alert(
+            `Failed to update project: You may not have the required permissions. (RLS) ${updateError.message}`
+          );
+        } else {
+          alert(
+            `Failed to update project due to a database error: ${updateError.message}`
+          );
+        }
         return null;
       }
-      return data;
-    } catch (err) {
-      console.error("Exception updating project:", err);
+
+      // If no error, the update request was accepted by the database.
+      // Now, fetch the project to confirm the update and get the latest data.
+      // This also verifies RLS SELECT permission.
+      console.log(
+        `Update request for project ${projectId} sent successfully. Re-fetching project...`
+      );
+      const updatedProject = await this.getProjectById(projectId);
+
+      if (updatedProject) {
+        console.log(
+          `Project ${projectId} successfully updated and re-fetched:`,
+          updatedProject
+        );
+        // Optional: Check if updatedProjectData fields are reflected in updatedProject
+        // This is more for sanity checking than a hard failure.
+        const nameMatch = updatedProjectData.name
+          ? updatedProject.name === updatedProjectData.name
+          : true;
+        const descriptionMatch =
+          updatedProjectData.description !== undefined
+            ? updatedProject.description === updatedProjectData.description
+            : true;
+        if (!nameMatch || !descriptionMatch) {
+          console.warn(
+            `Project ${projectId} re-fetched, but updated fields don't perfectly match the input. This might be due to transformations or delays. UI should still reflect re-fetched data.`
+          );
+        }
+        return updatedProject;
+      } else {
+        console.warn(
+          `Project ${projectId} was not found after an update attempt. This could mean the update caused it to become inaccessible due to RLS, or it was deleted concurrently.`
+        );
+        alert(
+          "Project data could not be retrieved after update. It might be inaccessible."
+        );
+        return null;
+      }
+    } catch (err: unknown) {
+      console.error(
+        `Exception in updateProject for project ${projectId}:`,
+        err
+      );
+      alert(
+        `An unexpected error occurred while updating the project: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
       return null;
     }
   }
 
   async deleteProject(id: string): Promise<boolean> {
-    // RLS will ensure only authorized users can delete.
+    console.log(`Attempting to delete project ${id}`);
     try {
-      const { error } = await supabase.from("projects").delete().eq("id", id);
+      const { error: deleteError, count } = await supabase
+        .from("projects")
+        .delete()
+        .eq("id", id);
 
-      if (error) {
+      if (deleteError) {
         console.error(
-          "Error deleting project (Supabase error object):",
-          JSON.stringify(error, null, 2)
+          `Error during Supabase delete operation for project ${id}:`,
+          deleteError
         );
-        console.error("Full error object:", error);
+        if (
+          deleteError.code === "42501" ||
+          deleteError.message.includes("RLS policy")
+        ) {
+          alert(
+            `Failed to delete project: You may not have the required permissions. (RLS) ${deleteError.message}`
+          );
+        } else {
+          alert(
+            `Failed to delete project due to a database error: ${deleteError.message}`
+          );
+        }
         return false;
       }
-      return true;
-    } catch (err) {
-      console.error("Exception deleting project:", err);
+
+      console.log(
+        `Supabase delete request for project ${id} completed. Response count: ${count}. Verifying deletion...`
+      );
+
+      // Verify deletion by trying to fetch the project.
+      const projectAfterDelete = await this.getProjectById(id);
+      if (projectAfterDelete === null) {
+        console.log(
+          `Project ${id} confirmed deleted (not found after delete attempt).`
+        );
+        return true;
+      } else {
+        // This case means the RLS policy prevented the delete for the current user,
+        // or the delete operation didn't target any rows.
+        console.warn(
+          `Project ${id} still found after delete attempt. RLS likely prevented actual deletion, or project ID was incorrect.`
+        );
+        alert(
+          "Failed to delete project. You may not have permission, or the project still exists."
+        );
+        return false;
+      }
+    } catch (err: unknown) {
+      console.error(`Exception in deleteProject for project ${id}:`, err);
+      alert(
+        `An unexpected error occurred while deleting the project: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
       return false;
     }
   }

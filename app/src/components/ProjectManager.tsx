@@ -8,10 +8,12 @@ import { Project } from "../models/Project";
 import { Task } from "../models/TaskModel";
 import { User as AppUser } from "../models/User";
 import KanbanBoard from "./KanbanBoard";
+import ConfirmationModal from "./ConfirmationModal";
 
 const ProjectManager: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [taskFormVisible, setTaskFormVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -24,6 +26,14 @@ const ProjectManager: React.FC = () => {
   const [projectFormVisible, setProjectFormVisible] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
+
+  // State for Edit Project Modal
+  const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
+  const [editingProjectName, setEditingProjectName] = useState("");
+  const [editingProjectDescription, setEditingProjectDescription] =
+    useState("");
+  const [isDeleteProjectConfirmOpen, setIsDeleteProjectConfirmOpen] =
+    useState(false);
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -72,10 +82,17 @@ const ProjectManager: React.FC = () => {
       TaskService.getTasksByProjectId(currentProjectId).then((fetchedTasks) => {
         setTasks(fetchedTasks || []);
       });
+      const projectDetails = projects.find((p) => p.id === currentProjectId);
+      setCurrentProject(projectDetails || null);
+      if (projectDetails) {
+        setEditingProjectName(projectDetails.name);
+        setEditingProjectDescription(projectDetails.description || "");
+      }
     } else {
       setTasks([]);
+      setCurrentProject(null);
     }
-  }, [currentProjectId, refreshKey]);
+  }, [currentProjectId, projects, refreshKey]);
 
   const availableUsers = allUsers.filter(
     (user) => user.role === "developer" || user.role === "devops"
@@ -256,6 +273,67 @@ const ProjectManager: React.FC = () => {
     }
   };
 
+  const openEditProjectModal = () => {
+    if (currentProject) {
+      setEditingProjectName(currentProject.name);
+      setEditingProjectDescription(currentProject.description || "");
+      setIsEditProjectModalOpen(true);
+    }
+  };
+
+  const handleUpdateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentProjectId || !currentProject) return;
+    if (!userService.hasWritePermission()) {
+      alert("You do not have permission to edit this project.");
+      return;
+    }
+    try {
+      const updatedProject = await ProjectService.updateProject(
+        currentProjectId,
+        {
+          name: editingProjectName,
+          description: editingProjectDescription,
+        }
+      );
+      if (updatedProject) {
+        setRefreshKey((prev) => prev + 1);
+        setIsEditProjectModalOpen(false);
+        alert("Project updated successfully!");
+      } else {
+        alert("Failed to update project.");
+      }
+    } catch (error) {
+      console.error("Error updating project:", error);
+      alert("An error occurred while updating project.");
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!currentProjectId) return;
+    if (!userService.hasWritePermission()) {
+      alert("You do not have permission to delete this project.");
+      setIsDeleteProjectConfirmOpen(false);
+      setIsEditProjectModalOpen(false);
+      return;
+    }
+    try {
+      const success = await ProjectService.deleteProject(currentProjectId);
+      if (success) {
+        alert("Project deleted successfully!");
+        setCurrentProjectId(null);
+        setRefreshKey((prev) => prev + 1);
+        setIsDeleteProjectConfirmOpen(false);
+        setIsEditProjectModalOpen(false);
+      } else {
+        alert("Failed to delete project. It might have associated tasks.");
+      }
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      alert("An error occurred while deleting project.");
+    }
+  };
+
   if (currentUser === undefined) {
     return <p>Loading user session...</p>;
   }
@@ -300,28 +378,35 @@ const ProjectManager: React.FC = () => {
               ))}
           </select>
         </div>
-        {currentUser && !projectFormVisible && (
-          <button
-            onClick={() => {
-              setProjectFormVisible(true);
-              setCurrentProjectId(null);
-            }}
-            className="button-primary add-project-button"
-          >
-            Add New Project
-          </button>
-        )}
+        {currentUser &&
+          !projectFormVisible &&
+          userService.hasWritePermission() && (
+            <button
+              onClick={() => {
+                setProjectFormVisible(true);
+                setCurrentProjectId(null);
+              }}
+              className="button-primary add-project-button"
+            >
+              Add New Project
+            </button>
+          )}
       </div>
 
       {projectFormVisible && (
-        <form onSubmit={handleAddProjectSubmit} className="project-form">
-          <div>
-            <label
-              htmlFor="new-project-name"
-              style={{ display: "block", marginBottom: "4px" }}
-            >
-              Project Name *
-            </label>
+        <form
+          onSubmit={handleAddProjectSubmit}
+          className="project-form task-form-container"
+          style={{ marginTop: "20px" }}
+        >
+          <h2
+            className="task-form-heading"
+            style={{ justifyContent: "flex-start" }}
+          >
+            Add New Project
+          </h2>
+          <div className="form-group">
+            <label htmlFor="new-project-name">Project Name *</label>
             <input
               type="text"
               id="new-project-name"
@@ -330,13 +415,8 @@ const ProjectManager: React.FC = () => {
               required
             />
           </div>
-          <div>
-            <label
-              htmlFor="new-project-description"
-              style={{ display: "block", marginBottom: "4px" }}
-            >
-              Description
-            </label>
+          <div className="form-group">
+            <label htmlFor="new-project-description">Description</label>
             <textarea
               id="new-project-description"
               value={newProjectDescription}
@@ -344,7 +424,11 @@ const ProjectManager: React.FC = () => {
             />
           </div>
           <div className="form-actions">
-            <button type="button" onClick={resetProjectForm}>
+            <button
+              type="button"
+              onClick={resetProjectForm}
+              className="button-secondary"
+            >
               Cancel
             </button>
             <button type="submit" className="button-primary">
@@ -354,135 +438,168 @@ const ProjectManager: React.FC = () => {
         </form>
       )}
 
-      {!projectFormVisible && currentProjectId && currentUser && (
-        <div className="task-section">
-          <div className="task-form-heading">
-            <h2>
-              {taskFormVisible
-                ? editingTask
-                  ? "Edit Task"
-                  : "Add New Task"
-                : "Tasks"}
-            </h2>
-            {!taskFormVisible && userService.hasWritePermission() && (
-              <button
-                className="button-primary add-task"
-                onClick={() => {
-                  setTaskFormVisible(true);
-                  resetTaskForm();
-                }}
-              >
-                Add Task
+      {!projectFormVisible && currentProject && currentUser && (
+        <div
+          className="current-project-details-section task-form-container"
+          style={{ marginTop: "20px" }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "16px",
+            }}
+          >
+            <div>
+              <h2 className="current-project-name">{currentProject.name}</h2>
+              {currentProject.description && (
+                <p className="current-project-description">
+                  {currentProject.description}
+                </p>
+              )}
+            </div>
+            {userService.hasWritePermission() && (
+              <button onClick={openEditProjectModal} className="button-success">
+                Edit Project
               </button>
             )}
           </div>
 
-          {taskFormVisible && (
-            <form onSubmit={handleTaskFormSubmit} className="task-form">
-              <input
-                type="text"
-                placeholder="Title"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                required
-              />
-              <textarea
-                placeholder="Description"
-                value={newTaskDescription}
-                onChange={(e) => setNewTaskDescription(e.target.value)}
-              />
-              <div>
-                <label
-                  htmlFor="task-priority"
-                  style={{ display: "block", marginBottom: "4px" }}
-                >
-                  Priority
-                </label>
-                <select
-                  id="task-priority"
-                  value={newTaskPriority}
-                  onChange={(e) =>
-                    setNewTaskPriority(
-                      e.target.value as "low" | "medium" | "high"
-                    )
-                  }
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-              <div>
-                <label
-                  htmlFor="task-estimated-time"
-                  style={{ display: "block", marginBottom: "4px" }}
-                >
-                  Estimated Time (h)
-                </label>
-                <input
-                  id="task-estimated-time"
-                  type="number"
-                  placeholder="Estimated Time (h)"
-                  value={newTaskEstimatedTime}
-                  onChange={(e) =>
-                    setNewTaskEstimatedTime(parseFloat(e.target.value) || 0)
-                  }
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="task-assignee"
-                  style={{ display: "block", marginBottom: "4px" }}
-                >
-                  Assign To
-                </label>
-                <select
-                  id="task-assignee"
-                  value={newTaskAssignedTo || ""}
-                  onChange={(e) => setNewTaskAssignedTo(e.target.value || null)}
-                >
-                  <option value="">Unassigned</option>
-                  {availableUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.firstName || "User"} {user.lastName || ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-actions" style={{ marginTop: "10px" }}>
-                <button type="submit" className="button-primary">
-                  {editingTask ? "Update Task" : "Save Task"}
-                </button>
+          <div className="task-section">
+            <div className="task-form-heading">
+              <h3>
+                {taskFormVisible
+                  ? editingTask
+                    ? "Edit Task"
+                    : "Add New Task"
+                  : "Tasks"}
+              </h3>
+              {!taskFormVisible && userService.hasWritePermission() && (
                 <button
-                  type="button"
-                  className="button-secondary"
+                  className="button-primary add-task"
                   onClick={() => {
-                    setTaskFormVisible(false);
+                    setTaskFormVisible(true);
                     resetTaskForm();
                   }}
                 >
-                  Cancel
+                  Add Task
                 </button>
-              </div>
-            </form>
-          )}
+              )}
+            </div>
 
-          <KanbanBoard
-            tasks={tasks}
-            onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteTask}
-            onStatusChange={handleTaskStatusChange}
-            onAssignUser={handleAssignUserToTask}
-            availableUsers={availableUsers}
-            canEdit={userService.hasWritePermission()}
-          />
+            {taskFormVisible && (
+              <form onSubmit={handleTaskFormSubmit} className="task-form">
+                <div className="form-group">
+                  <label htmlFor="task-title">Title *</label>
+                  <input
+                    id="task-title"
+                    type="text"
+                    placeholder="Title"
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="task-description">Description</label>
+                  <textarea
+                    id="task-description"
+                    placeholder="Description"
+                    value={newTaskDescription}
+                    onChange={(e) => setNewTaskDescription(e.target.value)}
+                  />
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="task-priority">Priority</label>
+                    <select
+                      id="task-priority"
+                      value={newTaskPriority}
+                      onChange={(e) =>
+                        setNewTaskPriority(
+                          e.target.value as "low" | "medium" | "high"
+                        )
+                      }
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="task-estimated-time">
+                      Estimated Time (h)
+                    </label>
+                    <input
+                      id="task-estimated-time"
+                      type="number"
+                      placeholder="Estimated Time (h)"
+                      value={newTaskEstimatedTime}
+                      min="0"
+                      step="0.5"
+                      onChange={(e) =>
+                        setNewTaskEstimatedTime(parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="task-assignee">Assign To</label>
+                  <select
+                    id="task-assignee"
+                    value={newTaskAssignedTo || ""}
+                    onChange={(e) =>
+                      setNewTaskAssignedTo(e.target.value || null)
+                    }
+                  >
+                    <option value="">Unassigned</option>
+                    {availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.firstName || "User"} {user.lastName || ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-actions" style={{ marginTop: "10px" }}>
+                  <button type="submit" className="button-primary">
+                    {editingTask ? "Update Task" : "Save Task"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => {
+                      setTaskFormVisible(false);
+                      resetTaskForm();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <KanbanBoard
+              tasks={tasks}
+              onEditTask={handleEditTask}
+              onDeleteTask={handleDeleteTask}
+              onStatusChange={handleTaskStatusChange}
+              onAssignUser={handleAssignUserToTask}
+              availableUsers={availableUsers}
+              canEdit={userService.hasWritePermission()}
+            />
+          </div>
         </div>
       )}
+
       {!projectFormVisible &&
         !currentProjectId &&
         currentUser &&
         projects.length === 0 && (
-          <div className="empty-state tasks-section">
+          <div
+            className="empty-state tasks-section"
+            style={{ marginTop: "20px" }}
+          >
             <h2>No projects available.</h2>
             <p>Click &quot;Add New Project&quot; above to create one.</p>
           </div>
@@ -491,23 +608,87 @@ const ProjectManager: React.FC = () => {
         !currentProjectId &&
         currentUser &&
         projects.length > 0 && (
-          <div className="empty-state tasks-section">
-            <h2>Select a project to start working</h2>
-            <p>
-              Use the project selector at the top of the page to choose a
-              project to manage.
-            </p>
+          <div
+            className="empty-state tasks-section"
+            style={{ marginTop: "20px" }}
+          >
+            <h2>Select a project to view details and tasks.</h2>
+            <p>Use the project selector at the top of the page.</p>
           </div>
         )}
       {currentUser === null && (
-        <div className="empty-state tasks-section">
+        <div
+          className="empty-state tasks-section"
+          style={{ marginTop: "20px" }}
+        >
           <h2>Please log in</h2>
-          <p>
-            You need to be logged in to manage projects and tasks, or to add new
-            projects.
-          </p>
+          <p>You need to be logged in to manage projects and tasks.</p>
         </div>
       )}
+
+      {/* Edit Project Modal */}
+      {isEditProjectModalOpen && currentProject && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "600px" }}>
+            <h3 className="modal-title">Edit Project: {currentProject.name}</h3>
+            <form onSubmit={handleUpdateProject} className="task-form">
+              <div className="form-group">
+                <label htmlFor="edit-project-name">Project Name</label>
+                <input
+                  id="edit-project-name"
+                  type="text"
+                  value={editingProjectName}
+                  onChange={(e) => setEditingProjectName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-project-description">Description</label>
+                <textarea
+                  id="edit-project-description"
+                  value={editingProjectDescription}
+                  onChange={(e) => setEditingProjectDescription(e.target.value)}
+                />
+              </div>
+              <div
+                className="modal-actions"
+                style={{ justifyContent: "space-between", marginTop: "20px" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteProjectConfirmOpen(true)}
+                  className="button-danger"
+                >
+                  Delete Project
+                </button>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditProjectModalOpen(false)}
+                    className="button-secondary"
+                    style={{ marginRight: "8px" }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="button-primary">
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation for Deleting Project (nested inside Edit Project flow) */}
+      <ConfirmationModal
+        isOpen={isDeleteProjectConfirmOpen}
+        title="Delete Project?"
+        message={`Are you sure you want to delete the project "${currentProject?.name}"? This action is irreversible and will delete all associated tasks.`}
+        onConfirm={handleDeleteProject}
+        onCancel={() => setIsDeleteProjectConfirmOpen(false)}
+        confirmButtonText="Yes, Delete Project"
+      />
     </div>
   );
 };

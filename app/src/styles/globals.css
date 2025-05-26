@@ -19,6 +19,7 @@
   --foreground: #172b4d;
   --foreground-secondary: #5e6c84;
   --card-bg: #ffffff;
+  --content-area-bg: #e9ecef;
   --task-card-actual-bg: #f8f9fa;
   --sidebar-bg: #0747a6;
   --sidebar-text: #ffffff;
@@ -36,6 +37,7 @@
   --foreground: #f4f5f7;
   --foreground-secondary: #a9b7d0;
   --card-bg: #2d2d2d;
+  --content-area-bg: #1f1c1bb5;
   --task-card-actual-bg: #3a3a3a;
   --sidebar-bg: #0d1424;
   --border-color: #383838;
@@ -222,10 +224,11 @@ select {
 .task-form-container {
   background: var(--card-bg);
   border-radius: var(--border-radius);
-  padding: 16px;
+  padding: 20px;
   margin-bottom: 24px;
   width: 100%;
   max-width: 1440px;
+  box-shadow: var(--shadow);
 }
 
 .task-form-heading {
@@ -289,7 +292,7 @@ textarea {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .form-actions button {
@@ -858,6 +861,56 @@ button {
   align-items: center;
 }
 
+/* Confirmation Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* Ensure it's on top */
+}
+
+.modal-content {
+  background-color: var(--card-bg);
+  padding: 24px;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 450px;
+  border: 1px solid var(--border-color);
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.modal-message {
+  font-size: 14px;
+  color: var(--foreground-secondary);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Ensure modal buttons have appropriate styling if not already covered by global button styles */
+/* .modal-actions .button-secondary {} -- Removing empty rule */
+
+/* .modal-actions .button-danger {} -- Removing empty rule */
+
 /* Styling for the direct assignment dropdown in TaskCard */
 .assign-user-direct-dropdown select {
   /* Inherit general select styles but make it more compact */
@@ -865,5 +918,42 @@ button {
   font-size: 12px; /* Smaller font */
   height: auto; /* Let content define height */
   min-width: 150px; /* Adjust as needed */
-  /* margin-left: 8px; /* Remove if it causes layout issues here, or set to 0 */ 
+  /* margin-left: 8px; /* Remove if it causes layout issues here, or set to 0 */
+}
+
+/* Current Project Details Section */
+.current-project-details-section {
+  /* This class is added to a div that also has .task-form-container */
+  /* We override the background here for this specific section */
+  background: var(
+    --content-area-bg
+  ) !important; /* Use new background, !important if needed to override */
+  /* padding, border-radius, box-shadow etc. are inherited from .task-form-container or can be redefined */
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 1440px; /* Ensure this matches other similar containers if needed */
+}
+
+.current-project-name {
+  font-size: 22px; /* Larger than tasks, but smaller than page title */
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 4px; /* Space between name and description */
+}
+
+.current-project-description {
+  font-size: 14px;
+  color: var(--foreground-secondary);
+  margin-bottom: 16px; /* Space before the task section starts within */
+  max-width: 80%; /* Prevent description from being too wide */
+  line-height: 1.5;
+}
+
+/* Adjustments for project form if it also uses task-form-container */
+.project-form.task-form-container .form-group {
+  margin-bottom: 16px; /* Ensure spacing in project add/edit forms */
+}
+
+.project-form.task-form-container .form-actions {
+  margin-top: 20px;
 }

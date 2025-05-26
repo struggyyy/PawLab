@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
@@ -16,26 +16,28 @@ const NavBar: React.FC = () => {
   };
 
   return (
-    <header className="app-header">
-      <div className="header-content">
-        <div className="logo-container">
-          <Link href="/" className="logo">
-            ManagMe
-          </Link>
-        </div>
+    <>
+      <header className="app-header">
+        <div className="header-content">
+          <div className="logo-container">
+            <Link href="/" className="logo">
+              ManagMe
+            </Link>
+          </div>
 
-        <div className="user-menu">
-          {user?.email && <span className="user-email">{user.email}</span>}
-          <ThemeToggle />
-          <button
-            onClick={handleSignOut}
-            className="button-secondary sign-out-button"
-          >
-            Sign Out
-          </button>
+          <div className="user-menu">
+            {user?.email && <span className="user-email">{user.email}</span>}
+            <ThemeToggle />
+            <button
+              onClick={handleSignOut}
+              className="button-secondary sign-out-button"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 };
 
