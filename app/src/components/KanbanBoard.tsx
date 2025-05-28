@@ -48,6 +48,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
+  const handleMoveTaskRightLocal = (taskId: string, currentStatus: Task['status']) => {
+    if (!canEdit) return;
+    let newStatus: Task['status'] | null = null;
+    if (currentStatus === "todo") {
+      newStatus = "doing";
+    } else if (currentStatus === "doing") {
+      newStatus = "done";
+    }
+    if (newStatus) {
+      handleLocalStatusChange(taskId, newStatus);
+    }
+  };
+
   const handleDragOver = (e: DragEvent<HTMLDivElement>, status: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -108,6 +121,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   onAssignUser={onAssignUser}
                   availableUsers={availableUsers}
                   canEdit={canEdit}
+                  onMoveTaskRight={handleMoveTaskRightLocal}
                 />
               ))}
               {groupedTasks[status].length === 0 && (

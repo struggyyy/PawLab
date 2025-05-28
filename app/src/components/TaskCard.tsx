@@ -9,6 +9,7 @@ export interface TaskCardProps {
   onAssignUser: (taskId: string, userId: string) => void;
   availableUsers: AppUser[];
   canEdit: boolean;
+  onMoveTaskRight?: (taskId: string, currentStatus: Task['status']) => void;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -18,6 +19,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onAssignUser,
   availableUsers,
   canEdit,
+  onMoveTaskRight,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -240,6 +242,23 @@ const TaskCard: React.FC<TaskCardProps> = ({
       >
         {canEdit && (
           <>
+            {task.status !== "done" && onMoveTaskRight && (
+              <button
+                className="button-icon move-right-button"
+                onClick={() => onMoveTaskRight(task.id, task.status)}
+                title="Move Right"
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1.2em",
+                  marginRight: "8px",
+                }}
+                data-testid={`move-right-button-${task.id}`}
+              >
+                ➡️
+              </button>
+            )}
             <button
               className="button-icon edit-button"
               onClick={onEdit}
